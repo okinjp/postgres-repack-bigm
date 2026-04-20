@@ -1,0 +1,92 @@
+name: update-extension-refs
+
+'on':
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      pg_repack_ref:
+        description: "Override pg_repack tag (optional)"
+        required: false
+        default: ""
+      pg_bigm_ref:
+        description: "Override pg_bigm tag (optional)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-refs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve latest refs
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_REPACK: ${{ github.event.inputs.pg_repack_ref || '' }}
+          INPUT_BIGM: ${{ github.event.inputs.pg_bigm_ref || '' }}
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${INPUT_REPACK}" ]]; then
+            latest_repack="${INPUT_REPACK}"
+          else
+            latest_repack="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/reorg/pg_repack/tags?per_page=1" | jq -r '.[0].name')"
+          fi
+
+          if [[ -n "${INPUT_BIGM}" ]]; then
+            latest_bigm="${INPUT_BIGM}"
+          else
+            latest_bigm="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/pgbigm/pg_bigm/tags?per_page=1" | jq -r '.[0].name')"
+          fi
+
+          current_repack="$(grep -m1 '^ARG PG_REPACK_REF=' Dockerfile | cut -d'=' -f2)"
+          current_bigm="$(grep -m1 '^ARG PG_BIGM_REF=' Dockerfile | cut -d'=' -f2)"
+
+          echo "latest_repack=${latest_repack}" >> "${GITHUB_OUTPUT}"
+          echo "latest_bigm=${latest_bigm}" >> "${GITHUB_OUTPUT}"
+
+          if [[ "${current_repack}" == "${latest_repack}" && "${current_bigm}" == "${latest_bigm}" ]]; then
+            echo "has_update=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "has_update=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Update Dockerfiles
+        if: steps.resolve.outputs.has_update == 'true'
+        env:
+          LATEST_REPACK: ${{ steps.resolve.outputs.latest_repack }}
+          LATEST_BIGM: ${{ steps.resolve.outputs.latest_bigm }}
+        run: |
+          set -euo pipefail
+          sed -i "s/^ARG PG_REPACK_REF=.*/ARG PG_REPACK_REF=${LATEST_REPACK}/" Dockerfile Dockerfile.alpine
+          sed -i "s/^ARG PG_BIGM_REF=.*/ARG PG_BIGM_REF=${LATEST_BIGM}/" Dockerfile Dockerfile.alpine
+
+      - name: Create pull request
+        if: steps.resolve.outputs.has_update == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: bump extension refs"
+          branch: "chore/bump-extension-refs"
+          delete-branch: true
+          title: "chore: bump PG_REPACK_REF and PG_BIGM_REF"
+          body: |
+            This PR updates extension refs used by Docker builds.
+
+            - PG_REPACK_REF: `${{ steps.resolve.outputs.latest_repack }}`
+            - PG_BIGM_REF: `${{ steps.resolve.outputs.latest_bigm }}`
+
+            Triggered by `${{ github.workflow }}`.
+          labels: |
+            dependencies
+            automated-pr
+
+      - name: No update
+        if: steps.resolve.outputs.has_update != 'true'
+        run: echo "No new upstream tags were detected."

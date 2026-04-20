@@ -1,0 +1,204 @@
+name: docker-build-push
+
+'on':
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      pg_repack_ref:
+        description: "Override PG_REPACK_REF for this run"
+        required: false
+        default: ""
+      pg_bigm_ref:
+        description: "Override PG_BIGM_REF for this run"
+        required: false
+        default: ""
+
+env:
+  IMAGE_NAME: okin/postgres-repack-bigm
+  PUBLISH_PLATFORMS: linux/amd64,linux/arm64
+
+jobs:
+  smoke-test:
+    runs-on: ${{ matrix.runs-on }}
+    env:
+      PG_REPACK_REF: ${{ github.event.inputs.pg_repack_ref || 'ver_1.5.2' }}
+      PG_BIGM_REF: ${{ github.event.inputs.pg_bigm_ref || 'v1.2-20250903' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: debian
+            dockerfile: Dockerfile
+            platform: linux/amd64
+            platform_tag: amd64
+            runs-on: ubuntu-latest
+          - variant: debian
+            dockerfile: Dockerfile
+            platform: linux/arm64
+            platform_tag: arm64
+            runs-on: ubuntu-24.04-arm
+          - variant: alpine
+            dockerfile: Dockerfile.alpine
+            platform: linux/amd64
+            platform_tag: amd64
+            runs-on: ubuntu-latest
+          - variant: alpine
+            dockerfile: Dockerfile.alpine
+            platform: linux/arm64
+            platform_tag: arm64
+            runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Show build refs
+        run: |
+          echo "PG_REPACK_REF=${PG_REPACK_REF}"
+          echo "PG_BIGM_REF=${PG_BIGM_REF}"
+
+      - name: Build test image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ matrix.platform }}
+          push: false
+          load: true
+          tags: local/test-image:${{ matrix.variant }}-${{ matrix.platform_tag }}
+          build-args: |
+            PG_REPACK_REF=${{ env.PG_REPACK_REF }}
+            PG_BIGM_REF=${{ env.PG_BIGM_REF }}
+
+      - name: Run extension smoke test
+        run: |
+          docker run -d \
+            --name pg-test-${{ matrix.variant }} \
+            -e POSTGRES_PASSWORD=postgres \
+            -v "${PWD}/tests:/tests:ro" \
+            local/test-image:${{ matrix.variant }}-${{ matrix.platform_tag }} \
+            -c shared_preload_libraries=pg_stat_statements
+
+          for i in {1..30}; do
+            if docker exec pg-test-${{ matrix.variant }} pg_isready -U postgres >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+
+          docker exec pg-test-${{ matrix.variant }} psql -U postgres -d postgres -f /tests/test-extensions.sql
+          docker rm -f pg-test-${{ matrix.variant }}
+
+  publish-debian:
+    if: github.event_name != 'pull_request'
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    env:
+      PG_REPACK_REF: ${{ github.event.inputs.pg_repack_ref || 'ver_1.5.2' }}
+      PG_BIGM_REF: ${{ github.event.inputs.pg_bigm_ref || 'v1.2-20250903' }}
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (debian)
+        id: meta-debian
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=debian,enable={{is_default_branch}}
+            type=semver,pattern={{version}}-debian
+            type=semver,pattern={{major}}.{{minor}}-debian
+            type=sha,prefix=sha-,suffix=-debian
+
+      - name: Build and push (debian)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: ${{ env.PUBLISH_PLATFORMS }}
+          push: true
+          tags: ${{ steps.meta-debian.outputs.tags }}
+          labels: ${{ steps.meta-debian.outputs.labels }}
+          cache-from: type=gha,scope=debian
+          cache-to: type=gha,mode=max,scope=debian
+          build-args: |
+            PG_REPACK_REF=${{ env.PG_REPACK_REF }}
+            PG_BIGM_REF=${{ env.PG_BIGM_REF }}
+
+  publish-alpine:
+    if: github.event_name != 'pull_request'
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    env:
+      PG_REPACK_REF: ${{ github.event.inputs.pg_repack_ref || 'ver_1.5.2' }}
+      PG_BIGM_REF: ${{ github.event.inputs.pg_bigm_ref || 'v1.2-20250903' }}
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (alpine)
+        id: meta-alpine
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=alpine,enable={{is_default_branch}}
+            type=semver,pattern={{version}}-alpine
+            type=semver,pattern={{major}}.{{minor}}-alpine
+            type=sha,prefix=sha-,suffix=-alpine
+
+      - name: Build and push (alpine)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.alpine
+          platforms: ${{ env.PUBLISH_PLATFORMS }}
+          push: true
+          tags: ${{ steps.meta-alpine.outputs.tags }}
+          labels: ${{ steps.meta-alpine.outputs.labels }}
+          cache-from: type=gha,scope=alpine
+          cache-to: type=gha,mode=max,scope=alpine
+          build-args: |
+            PG_REPACK_REF=${{ env.PG_REPACK_REF }}
+            PG_BIGM_REF=${{ env.PG_BIGM_REF }}
