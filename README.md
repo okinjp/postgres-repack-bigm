@@ -16,21 +16,6 @@ Docker Hub:
 - Debian系: latest, debian, vX.Y.Z-debian, X.Y-debian, sha-xxxxxxx-debian
 - Alpine系: alpine, vX.Y.Z-alpine, X.Y-alpine, sha-xxxxxxx-alpine
 
-## GitHub Actions での公開
-
-ワークフローは .github/workflows/docker-build-push.yml です。
-
-必要な GitHub Secrets:
-
-- DOCKERHUB_USERNAME
-- DOCKERHUB_TOKEN
-
-更新自動化ワークフロー:
-
-- `.github/workflows/update-extension-refs.yml`
-- 毎週、上流タグを確認して `PG_REPACK_REF` と `PG_BIGM_REF` の更新PRを自動作成
-- `workflow_dispatch` でタグを手動指定してPR作成も可能
-
 ## Arch
 
 - 現在: linux/amd64, linux/arm64
