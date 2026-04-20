@@ -202,3 +202,25 @@ jobs:
           build-args: |
             PG_REPACK_REF=${{ env.PG_REPACK_REF }}
             PG_BIGM_REF=${{ env.PG_BIGM_REF }}
+
+  publish-description:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs:
+      - publish-debian
+      - publish-alpine
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update Docker Hub description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.IMAGE_NAME }}
+          short-description: PostgreSQL 18 image with pg_repack and pg_bigm
+          readme-filepath: ./README.md
