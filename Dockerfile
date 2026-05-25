@@ -1,6 +1,6 @@
 FROM postgres:18-bookworm AS builder
 
-ARG PG_REPACK_REF=ver_1.5.2
+ARG PG_REPACK_REF=ver_1.5.3
 ARG PG_BIGM_REF=v1.2-20250903
 
 # Build extension artifacts against PostgreSQL 18 headers.
