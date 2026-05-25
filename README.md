@@ -16,6 +16,14 @@ Docker Hub:
 - Debian系: latest, debian, vX.Y.Z-debian, X.Y-debian, sha-xxxxxxx-debian
 - Alpine系: alpine, vX.Y.Z-alpine, X.Y-alpine, sha-xxxxxxx-alpine
 
+## GitHub Actions Secrets
+
+- DOCKERHUB_USERNAME: Docker Hub username
+- DOCKERHUB_TOKEN: Docker Hub access token with push permission
+- PR_CREATION_TOKEN: GitHub personal access token with repository write access for update-extension-refs.yml
+
+`update-extension-refs.yml` は upstream タグ更新時に pull request を作成します。リポジトリ設定で GitHub Actions の pull request 作成が禁止されている場合、`GITHUB_TOKEN` では失敗するため `PR_CREATION_TOKEN` が必要です。
+
 ## Arch
 
 - 現在: linux/amd64, linux/arm64

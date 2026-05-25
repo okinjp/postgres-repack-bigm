@@ -21,6 +21,8 @@ permissions:
 jobs:
   update-refs:
     runs-on: ubuntu-latest
+    env:
+      PR_CREATION_TOKEN: ${{ secrets.PR_CREATION_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,10 +70,17 @@ jobs:
           sed -i "s/^ARG PG_REPACK_REF=.*/ARG PG_REPACK_REF=${LATEST_REPACK}/" Dockerfile Dockerfile.alpine
           sed -i "s/^ARG PG_BIGM_REF=.*/ARG PG_BIGM_REF=${LATEST_BIGM}/" Dockerfile Dockerfile.alpine
 
+      - name: Ensure PR token is configured
+        if: steps.resolve.outputs.has_update == 'true' && env.PR_CREATION_TOKEN == ''
+        run: |
+          echo "PR_CREATION_TOKEN secret is required because this repository does not allow GITHUB_TOKEN to create pull requests."
+          exit 1
+
       - name: Create pull request
-        if: steps.resolve.outputs.has_update == 'true'
+        if: steps.resolve.outputs.has_update == 'true' && env.PR_CREATION_TOKEN != ''
         uses: peter-evans/create-pull-request@v6
         with:
+          token: ${{ env.PR_CREATION_TOKEN }}
           commit-message: "chore: bump extension refs"
           branch: "chore/bump-extension-refs"
           delete-branch: true
