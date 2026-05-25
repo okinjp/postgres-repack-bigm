@@ -80,5 +80,5 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 
 ## リンク
 
-- [github.com/okinjp/postgres-repack-bigm](https://github.com/postgres-repack-bigm)
+- [github.com/okinjp/postgres-repack-bigm](https://github.com/okinjp/postgres-repack-bigm)
 - [docker.io/okin/postgres-repack-bigm](https://docker.io/okin/postgres-repack-bigm)
