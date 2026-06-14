@@ -9,6 +9,8 @@ name: docker-build-push
   pull_request:
     branches:
       - main
+  schedule:
+    - cron: "0 6 * * 1"
   workflow_dispatch:
     inputs:
       pg_repack_ref:
@@ -27,9 +29,6 @@ env:
 jobs:
   smoke-test:
     runs-on: ${{ matrix.runs-on }}
-    env:
-      PG_REPACK_REF: ${{ github.event.inputs.pg_repack_ref || 'ver_1.5.2' }}
-      PG_BIGM_REF: ${{ github.event.inputs.pg_bigm_ref || 'v1.2-20250903' }}
     strategy:
       fail-fast: false
       matrix:
@@ -61,11 +60,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Show build refs
-        run: |
-          echo "PG_REPACK_REF=${PG_REPACK_REF}"
-          echo "PG_BIGM_REF=${PG_BIGM_REF}"
-
       - name: Build test image
         uses: docker/build-push-action@v6
         with:
@@ -76,8 +70,8 @@ jobs:
           load: true
           tags: local/test-image:${{ matrix.variant }}-${{ matrix.platform_tag }}
           build-args: |
-            PG_REPACK_REF=${{ env.PG_REPACK_REF }}
-            PG_BIGM_REF=${{ env.PG_BIGM_REF }}
+            ${{ github.event.inputs.pg_repack_ref && format('PG_REPACK_REF={0}', github.event.inputs.pg_repack_ref) || '' }}
+            ${{ github.event.inputs.pg_bigm_ref && format('PG_BIGM_REF={0}', github.event.inputs.pg_bigm_ref) || '' }}
 
       - name: Run extension smoke test
         run: |
@@ -102,9 +96,6 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: smoke-test
     runs-on: ubuntu-latest
-    env:
-      PG_REPACK_REF: ${{ github.event.inputs.pg_repack_ref || 'ver_1.5.2' }}
-      PG_BIGM_REF: ${{ github.event.inputs.pg_bigm_ref || 'v1.2-20250903' }}
     permissions:
       contents: read
 
@@ -147,16 +138,13 @@ jobs:
           cache-from: type=gha,scope=debian
           cache-to: type=gha,mode=max,scope=debian
           build-args: |
-            PG_REPACK_REF=${{ env.PG_REPACK_REF }}
-            PG_BIGM_REF=${{ env.PG_BIGM_REF }}
+            ${{ github.event.inputs.pg_repack_ref && format('PG_REPACK_REF={0}', github.event.inputs.pg_repack_ref) || '' }}
+            ${{ github.event.inputs.pg_bigm_ref && format('PG_BIGM_REF={0}', github.event.inputs.pg_bigm_ref) || '' }}
 
   publish-alpine:
     if: github.event_name != 'pull_request'
     needs: smoke-test
     runs-on: ubuntu-latest
-    env:
-      PG_REPACK_REF: ${{ github.event.inputs.pg_repack_ref || 'ver_1.5.2' }}
-      PG_BIGM_REF: ${{ github.event.inputs.pg_bigm_ref || 'v1.2-20250903' }}
     permissions:
       contents: read
 
@@ -199,8 +187,8 @@ jobs:
           cache-from: type=gha,scope=alpine
           cache-to: type=gha,mode=max,scope=alpine
           build-args: |
-            PG_REPACK_REF=${{ env.PG_REPACK_REF }}
-            PG_BIGM_REF=${{ env.PG_BIGM_REF }}
+            ${{ github.event.inputs.pg_repack_ref && format('PG_REPACK_REF={0}', github.event.inputs.pg_repack_ref) || '' }}
+            ${{ github.event.inputs.pg_bigm_ref && format('PG_BIGM_REF={0}', github.event.inputs.pg_bigm_ref) || '' }}
 
   publish-latest:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
