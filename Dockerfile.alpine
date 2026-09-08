@@ -6,7 +6,7 @@ ARG PG_BIGM_REF=v1.2-20250903
 RUN set -eux; \
     apk add --no-cache \
         build-base \
-        clang19 \
+        clang21 \
         gawk \
         git \
         icu-dev \
@@ -14,7 +14,7 @@ RUN set -eux; \
         numactl-dev \
         openssl-dev \
         readline-dev \
-        llvm19 \
+        llvm21 \
         zlib-dev \
         zstd-dev; \
     mkdir -p /tmp/build; \
@@ -49,5 +49,5 @@ COPY --from=builder /usr/local/share/postgresql/extension/pg_repack* /usr/local/
 COPY --from=builder /usr/local/share/postgresql/extension/pg_bigm* /usr/local/share/postgresql/extension/
 
 LABEL org.opencontainers.image.title="PostgreSQL 18 (Alpine) with pg_repack and pg_bigm" \
-      org.opencontainers.image.description="Postgres 18 Alpine image with pg_repack, pg_bigm, and contrib extensions such as pg_trgm and pg_stat_statements." \
+    org.opencontainers.image.description="Postgres 18 Alpine image with pg_repack, pg_bigm, and contrib extensions such as pg_trgm and pg_stat_statements." \
       org.opencontainers.image.source="https://github.com/okin/pg-repack-bigm"

@@ -21,6 +21,10 @@ name: docker-build-push
         description: "Override PG_BIGM_REF for this run"
         required: false
         default: ""
+      pgroonga_ref:
+        description: "Override PGROONGA_REF for this run"
+        required: false
+        default: ""
 
 env:
   IMAGE_NAME: okin/postgres-repack-bigm
@@ -45,11 +49,13 @@ jobs:
             runs-on: ubuntu-24.04-arm
           - variant: alpine
             dockerfile: Dockerfile.alpine
+            test_file: test-extensions-alpine.sql
             platform: linux/amd64
             platform_tag: amd64
             runs-on: ubuntu-latest
           - variant: alpine
             dockerfile: Dockerfile.alpine
+            test_file: test-extensions-alpine.sql
             platform: linux/arm64
             platform_tag: arm64
             runs-on: ubuntu-24.04-arm
@@ -72,6 +78,7 @@ jobs:
           build-args: |
             ${{ github.event.inputs.pg_repack_ref && format('PG_REPACK_REF={0}', github.event.inputs.pg_repack_ref) || '' }}
             ${{ github.event.inputs.pg_bigm_ref && format('PG_BIGM_REF={0}', github.event.inputs.pg_bigm_ref) || '' }}
+            ${{ github.event.inputs.pgroonga_ref && format('PGROONGA_REF={0}', github.event.inputs.pgroonga_ref) || '' }}
 
       - name: Run extension smoke test
         run: |
@@ -89,7 +96,7 @@ jobs:
             sleep 2
           done
 
-          docker exec pg-test-${{ matrix.variant }} psql -U postgres -d postgres -f /tests/test-extensions.sql
+          docker exec pg-test-${{ matrix.variant }} psql -U postgres -d postgres -f /tests/${{ matrix.test_file || 'test-extensions.sql' }}
           docker rm -f pg-test-${{ matrix.variant }}
 
   publish-debian:
@@ -140,6 +147,7 @@ jobs:
           build-args: |
             ${{ github.event.inputs.pg_repack_ref && format('PG_REPACK_REF={0}', github.event.inputs.pg_repack_ref) || '' }}
             ${{ github.event.inputs.pg_bigm_ref && format('PG_BIGM_REF={0}', github.event.inputs.pg_bigm_ref) || '' }}
+            ${{ github.event.inputs.pgroonga_ref && format('PGROONGA_REF={0}', github.event.inputs.pgroonga_ref) || '' }}
 
   publish-alpine:
     if: github.event_name != 'pull_request'
@@ -189,6 +197,7 @@ jobs:
           build-args: |
             ${{ github.event.inputs.pg_repack_ref && format('PG_REPACK_REF={0}', github.event.inputs.pg_repack_ref) || '' }}
             ${{ github.event.inputs.pg_bigm_ref && format('PG_BIGM_REF={0}', github.event.inputs.pg_bigm_ref) || '' }}
+            ${{ github.event.inputs.pgroonga_ref && format('PGROONGA_REF={0}', github.event.inputs.pgroonga_ref) || '' }}
 
   publish-latest:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

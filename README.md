@@ -4,6 +4,7 @@ PostgreSQL 18 ベースで、以下の拡張を利用できる Docker イメー�
 
 - pg_repack
 - pg_bigm
+- pgroonga
 - pg_trgm
 - pg_stat_statements
 
@@ -23,9 +24,11 @@ Docker Hub:
 ## ビルド
 
 環境変数
-- PG_REPACK_REF (default: ver_1.5.2)
+- PG_REPACK_REF (default: ver_1.5.3)
 - PG_BIGM_REF (default: v1.2-20250903)
+- PGROONGA_REF (default: 4.0.8)
 
+pgroonga は Debian 版（`latest`、`debian`）で利用できます。Alpine 版は Alpine の公式リポジトリに Groonga がないため、pgroonga を含みません。
 
 Debian版:
 
@@ -33,6 +36,7 @@ Debian版:
 docker build \
   --build-arg PG_REPACK_REF=ver_1.5.3 \
   --build-arg PG_BIGM_REF=v1.2-20250903 \
+  --build-arg PGROONGA_REF=4.0.8 \
   -t okin/postgres-repack-bigm:local-debian \
   -f Dockerfile .
 ```
@@ -74,6 +78,7 @@ docker run --name pg18-ext-alpine \
 ```sql
 CREATE EXTENSION IF NOT EXISTS pg_repack;
 CREATE EXTENSION IF NOT EXISTS pg_bigm;
+CREATE EXTENSION IF NOT EXISTS pgroonga;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 ```
