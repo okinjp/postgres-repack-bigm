@@ -2,7 +2,7 @@ FROM postgres:18-bookworm AS builder
 
 ARG PG_REPACK_REF=ver_1.5.3
 ARG PG_BIGM_REF=v1.2-20250903
-ARG PGROONGA_REF=4.0.8
+ARG PGROONGA_REF=4.1.0
 
 # Build extension artifacts against PostgreSQL 18 headers.
 RUN set -eux; \
